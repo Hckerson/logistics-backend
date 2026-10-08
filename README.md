@@ -15,7 +15,7 @@ pnpm start:dev
 
 `pnpm install` also generates the Prisma client. `pnpm keys:generate` prints the RS256 pair — paste the backend lines into `.env` and the public key into the frontend's `.env`. The seed creates `admin@example.com` / `password123`.
 
-The API serves on `http://localhost:5000/api`, with Swagger at `/api/docs`.
+The API serves on `http://localhost:5100/api`, with Swagger at `/api/docs`.
 
 ## What ships
 
