@@ -5,9 +5,20 @@ const complete = {
     DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/app',
     JWT_PRIVATE_KEY: 'private',
     JWT_PUBLIC_KEY: 'public',
+    TRACKING_TOKEN_SECRET: 'tracking',
 };
 
 describe('environment validation', () => {
+    it('refuses to boot without the tracking token secret', () => {
+        expect(() =>
+            validateEnv({ ...complete, TRACKING_TOKEN_SECRET: undefined }),
+        ).toThrow(/TRACKING_TOKEN_SECRET/);
+    });
+
+    it('boots without document storage settings', () => {
+        expect(validateEnv(complete).STORAGE_BUCKET).toBeUndefined();
+    });
+
     it('refuses to boot without the signing key', () => {
         expect(() =>
             validateEnv({ ...complete, JWT_PRIVATE_KEY: undefined }),

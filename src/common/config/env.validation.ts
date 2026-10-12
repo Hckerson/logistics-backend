@@ -6,10 +6,21 @@ const blankAsAbsent = (value: unknown): unknown =>
 
 const requiredSecret = z.preprocess(blankAsAbsent, z.string().min(1));
 
+const optionalSetting = z.preprocess(
+    blankAsAbsent,
+    z.string().min(1).optional(),
+);
+
 const envSchema = z.object({
     DATABASE_URL: requiredSecret,
     JWT_PRIVATE_KEY: requiredSecret,
     JWT_PUBLIC_KEY: requiredSecret,
+    TRACKING_TOKEN_SECRET: requiredSecret,
+    STORAGE_BUCKET: optionalSetting,
+    STORAGE_REGION: optionalSetting,
+    STORAGE_ENDPOINT: z.preprocess(blankAsAbsent, z.url().optional()),
+    STORAGE_ACCESS_KEY_ID: optionalSetting,
+    STORAGE_SECRET_ACCESS_KEY: optionalSetting,
     NODE_ENV: z.preprocess(
         blankAsAbsent,
         z.enum(NodeEnv).default(NodeEnv.DEVELOPMENT),

@@ -19,6 +19,136 @@ enum UserAccountStatus {
   SUSPENDED
 }
 
+enum OrganizationSide {
+  shipper
+  carrier
+  haulr
+}
+
+enum FacilityType {
+  pickup
+  delivery
+  both
+}
+
+enum LoadStatus {
+  Draft
+  PendingApproval
+  Posted
+  Booked
+  Dispatched
+  AtPickup
+  InTransit
+  AtDelivery
+  Delivered
+  PodVerified
+  Invoiced
+  Paid
+  Closed
+  Cancelled
+  Expired
+  OnHold
+  Disputed
+}
+
+enum StopType {
+  pickup
+  delivery
+}
+
+enum ChargeParty {
+  shipper
+  carrier
+}
+
+enum ChargeKind {
+  linehaul
+  fuel
+  accessorial
+  fee
+  deduction
+  quickPayFee
+}
+
+enum ChargeStatus {
+  agreed
+  pendingApproval
+  disputed
+}
+
+enum EtaConfidence {
+  high
+  medium
+  low
+}
+
+enum PositionSource {
+  eld
+  driverApp
+  mobileWeb
+  checkCall
+}
+
+enum LoadEventType {
+  statusChanged
+  stopArrived
+  stopDeparted
+  trackingStale
+  checkCallRequested
+  documentUploaded
+  trackingLinkCreated
+  trackingLinkRevoked
+}
+
+enum ActorType {
+  member
+  staff
+  apiKey
+  system
+}
+
+enum EventSource {
+  web
+  driver
+  geofence
+  eld
+  operations
+  system
+  api
+}
+
+enum DocumentType {
+  bol
+  pod
+  rateConfirmation
+  lumperReceipt
+  damagePhoto
+  invoice
+  insuranceCertificate
+  w9
+  carrierAgreement
+}
+
+enum ScanStatus {
+  awaitingUpload
+  pending
+  clean
+  rejected
+  failed
+}
+
+enum NotificationEvent {
+  checkCallRequested
+  loadPosted
+  loadBooked
+  bidReceived
+  etaChanged
+  trackingStale
+  podVerified
+  invoiceDue
+  complianceChanged
+}
+
 model User {
   id String @id @default(uuid())
 
@@ -34,5 +164,216 @@ model User {
   role         UserRole          @default(USER)
   status       UserAccountStatus @default(ACTIVE)
 
+  membership    Membership?
+  drivenLoads   Load[]         @relation("LoadDriver")
+  loadEvents    LoadEvent[]
+  trackingLinks TrackingLink[]
+  documents     Document[]
+  notifications Notification[]
+
   @@index([createdAt])
+}
+
+model Organization {
+  id        String           @id @default(uuid())
+  name      String
+  side      OrganizationSide
+  createdAt DateTime         @default(now())
+
+  memberships  Membership[]
+  facilities   Facility[]
+  shippedLoads Load[]       @relation("LoadShipper")
+  carriedLoads Load[]       @relation("LoadCarrier")
+
+  @@index([name])
+}
+
+model Membership {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  organizationId String
+  roles          String[]
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Facility {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  type           FacilityType
+  line1          String
+  city           String
+  region         String
+  postalCode     String
+  latitude       Float
+  longitude      Float
+  timeZone       String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stops        Stop[]
+
+  @@index([organizationId, name])
+  @@index([organizationId, city])
+}
+
+model Load {
+  id             String         @id
+  status         LoadStatus     @default(Draft)
+  version        Int            @default(1)
+  shipperId      String
+  carrierId      String?
+  driverId       String?
+  equipment      String
+  commodity      String
+  weightLb       Int
+  pallets        Int?
+  tempMinF       Int?
+  tempMaxF       Int?
+  hazmat         Boolean        @default(false)
+  poNumber       String?
+  bolNumber      String?
+  etaAt          DateTime?
+  etaConfidence  EtaConfidence?
+  etaLate        Boolean        @default(false)
+  milesRemaining Int?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  shipper       Organization   @relation("LoadShipper", fields: [shipperId], references: [id])
+  carrier       Organization?  @relation("LoadCarrier", fields: [carrierId], references: [id])
+  driver        User?          @relation("LoadDriver", fields: [driverId], references: [id])
+  stops         Stop[]
+  charges       Charge[]
+  positions     Position[]
+  events        LoadEvent[]
+  trackingLinks TrackingLink[]
+  documents     Document[]
+  notifications Notification[]
+
+  @@index([shipperId, status])
+  @@index([carrierId, status])
+  @@index([driverId])
+  @@index([poNumber])
+  @@index([bolNumber])
+}
+
+model Stop {
+  id           String    @id @default(uuid())
+  loadId       String
+  facilityId   String
+  sequence     Int
+  type         StopType
+  windowStart  DateTime
+  windowEnd    DateTime
+  reference    String?
+  instructions String?
+  arrivedAt    DateTime?
+  departedAt   DateTime?
+
+  load     Load     @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@unique([loadId, sequence])
+}
+
+model Charge {
+  id          String       @id @default(uuid())
+  loadId      String
+  party       ChargeParty
+  kind        ChargeKind
+  amountCents Int
+  status      ChargeStatus @default(agreed)
+
+  load Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
+
+  @@index([loadId, party])
+}
+
+model Position {
+  id         String         @id @default(uuid())
+  loadId     String
+  latitude   Float
+  longitude  Float
+  heading    Int?
+  speedMph   Int?
+  city       String
+  source     PositionSource
+  recordedAt DateTime
+  receivedAt DateTime       @default(now())
+
+  load Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
+
+  @@index([loadId, recordedAt])
+}
+
+model LoadEvent {
+  id         String        @id @default(uuid())
+  loadId     String
+  type       LoadEventType
+  fromStatus LoadStatus?
+  toStatus   LoadStatus?
+  actorType  ActorType
+  actorId    String?
+  source     EventSource
+  reason     String?
+  note       String?
+  city       String?
+  occurredAt DateTime      @default(now())
+
+  load  Load  @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([loadId, occurredAt])
+  @@index([loadId, type])
+}
+
+model TrackingLink {
+  id          String    @id @default(uuid())
+  loadId      String
+  createdById String
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  load      Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([loadId, revokedAt])
+}
+
+model Document {
+  id           String       @id @default(uuid())
+  loadId       String
+  type         DocumentType
+  fileName     String
+  contentType  String
+  sizeBytes    Int
+  storageKey   String       @unique
+  scanStatus   ScanStatus   @default(awaitingUpload)
+  version      Int          @default(1)
+  uploadedById String
+  createdAt    DateTime     @default(now())
+
+  load       Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@index([loadId, type])
+}
+
+model Notification {
+  id        String            @id @default(uuid())
+  userId    String
+  event     NotificationEvent
+  loadId    String?
+  createdAt DateTime          @default(now())
+  readAt    DateTime?
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  load Load? @relation(fields: [loadId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
 }

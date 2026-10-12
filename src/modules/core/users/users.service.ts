@@ -2,9 +2,17 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { UserRepo } from '@common/repos/user.repo';
 import { USER_EXISTS } from '@common/enums/auth';
 import { UNIQUE_VIOLATION } from '@common/enums/prisma';
-import { Prisma, User } from 'generated/prisma/client';
+import { Prisma } from 'generated/prisma/client';
 import { PasswordUtil } from '@core/auth/utils/password.util';
-import { CreateUserDto, UserResponse, userSelect } from './dto';
+import {
+    CreateUserDto,
+    UserCredential,
+    UserIdentity,
+    UserResponse,
+    credentialSelect,
+    identitySelect,
+    userSelect,
+} from './dto';
 
 @Injectable()
 export class UsersService {
@@ -34,8 +42,18 @@ export class UsersService {
         return this.userRepo.findUnique({ where: { id }, select: userSelect });
     }
 
-    async findByEmail(email: string): Promise<User | null> {
-        return this.userRepo.findUnique({ where: { email } });
+    async findByEmail(email: string): Promise<UserCredential | null> {
+        return this.userRepo.findUnique({
+            where: { email },
+            select: credentialSelect,
+        });
+    }
+
+    async findIdentity(id: string): Promise<UserIdentity | null> {
+        return this.userRepo.findUnique({
+            where: { id },
+            select: identitySelect,
+        });
     }
 
     async update(
