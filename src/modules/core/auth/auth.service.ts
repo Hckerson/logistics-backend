@@ -1,8 +1,8 @@
 import { JwtService } from '@nestjs/jwt';
+import { UserRole } from 'generated/prisma/client';
 import { PasswordUtil } from './utils/password.util';
-import { toAuthUser } from './utils/auth-user.util';
 import { UsersService } from '@core/users/users.service';
-import type { AuthResponse, AuthUser, JwtPayload } from './types/auth.types';
+import type { AuthResponse, JwtPayload } from './types/auth.types';
 import { LoginDto, RegisterDto } from './dto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 
@@ -15,23 +15,43 @@ export class AuthService {
 
     async register(dto: RegisterDto): Promise<AuthResponse> {
         const user = await this.usersService.create(dto);
+        const accessToken = this.generateToken(user);
 
-        return this.respond(toAuthUser({ ...user, membership: null }));
+        return { user: this.toAuthUser(user), accessToken };
     }
 
     async login(dto: LoginDto): Promise<AuthResponse> {
         const user = await this.authenticateUser(dto.email, dto.password);
+        const accessToken = this.generateToken(user);
 
-        return this.respond(toAuthUser(user));
+        return { user: this.toAuthUser(user), accessToken };
     }
 
-    private respond({ id, name, email, role, roles }: AuthUser): AuthResponse {
-        const payload: JwtPayload = { sub: id, email, role, roles };
-
+    private toAuthUser(user: {
+        id: string;
+        fullName: string;
+        email: string;
+        role: UserRole;
+    }) {
         return {
-            user: { id, name, email, role, roles },
-            accessToken: this.jwtService.sign(payload),
+            id: user.id,
+            name: user.fullName,
+            email: user.email,
+            role: user.role,
         };
+    }
+
+    private generateToken(user: {
+        id: string;
+        email: string;
+        role: UserRole;
+    }): string {
+        const payload: JwtPayload = {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+        };
+        return this.jwtService.sign(payload);
     }
 
     private async authenticateUser(email: string, password: string) {

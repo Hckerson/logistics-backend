@@ -11,7 +11,6 @@ const SECRETS_UNUSED_IN_PREVIEW = [
     'DATABASE_URL',
     'JWT_PRIVATE_KEY',
     'JWT_PUBLIC_KEY',
-    'TRACKING_TOKEN_SECRET',
 ];
 
 const standInForSecretsPreviewNeverReads = () => {
